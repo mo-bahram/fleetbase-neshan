@@ -5,6 +5,7 @@
 # Usage:
 #   bash scripts/docker-install.sh              # interactive (default)
 #   bash scripts/docker-install.sh --non-interactive  # CI/CD, all defaults
+#   bash scripts/docker-install.sh --with-demo-data   # development demo dataset
 # -------------------------------------------------------
 set -euo pipefail
 
@@ -25,10 +26,14 @@ upper() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }
 # Git Bash rewrites arguments that look like POSIX paths before docker.exe sees them.
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) export MSYS_NO_PATHCONV=1 ;; esac
 
-# ─── Non-interactive flag ────────────────────────────────────────────────────
+# ─── Installer flags ─────────────────────────────────────────────────────────
 NON_INTERACTIVE=false
+WITH_DEMO_DATA=false
 for arg in "$@"; do
-  [[ "$arg" == "--non-interactive" ]] && NON_INTERACTIVE=true
+  case "$arg" in
+    --non-interactive) NON_INTERACTIVE=true ;;
+    --with-demo-data)  WITH_DEMO_DATA=true ;;
+  esac
 done
 $NON_INTERACTIVE && info "Non-interactive mode: all optional steps will use safe defaults."
 
@@ -122,6 +127,16 @@ else
 
   read -rp "Application name [Fleetbase]: " APP_NAME_INPUT
   APP_NAME="${APP_NAME_INPUT:-Fleetbase}"
+
+  if [[ "$ENVIRONMENT" == "development" ]] && ! $WITH_DEMO_DATA; then
+    read -rp "Install FleetOps demo data and a demo administrator? (y/N): " DEMO_YN
+    case "$(lower "$DEMO_YN")" in y|yes) WITH_DEMO_DATA=true ;; esac
+  fi
+fi
+
+if [[ "$ENVIRONMENT" == "production" ]] && $WITH_DEMO_DATA; then
+  error "Demo data cannot be installed in production."
+  exit 1
 fi
 
 # Derive scheme flags
@@ -585,7 +600,25 @@ docker compose up -d
 success "Deployment complete"
 
 ###############################################################################
-# STEP 14 — Post-install summary
+# STEP 14 — Optional demo data
+###############################################################################
+DEMO_ADMIN_EMAIL=""
+DEMO_ADMIN_PASSWORD=""
+if $WITH_DEMO_DATA; then
+  section "Installing Demo Data"
+  DEMO_ADMIN_EMAIL="demo@fleetbase.test"
+  DEMO_ADMIN_PASSWORD="$(gen_secret 12)"
+  docker compose exec -T \
+    -e "DEMO_ADMIN_EMAIL=${DEMO_ADMIN_EMAIL}" \
+    -e "DEMO_ADMIN_PASSWORD=${DEMO_ADMIN_PASSWORD}" \
+    application php artisan db:seed \
+      --class='Fleetbase\FleetOps\Seeders\Testing\DemoSeeder' \
+      --force
+  success "FleetOps demo organization and fixtures installed"
+fi
+
+###############################################################################
+# STEP 15 — Post-install summary
 ###############################################################################
 CONFIGURED_ITEMS=()
 SKIPPED_ITEMS=()
@@ -603,6 +636,7 @@ $CONFIG_MAIL \
   || SKIPPED_ITEMS+=("File storage (local disk — not suitable for production)")
 
 CONFIGURED_ITEMS+=("WebSocket security (origins restricted to ${HOST})")
+$WITH_DEMO_DATA && CONFIGURED_ITEMS+=("FleetOps demo organization and fixtures")
 
 $CONFIG_3P \
   && CONFIGURED_ITEMS+=("Third-party APIs (Maps, Geolocation, SMS)") \
@@ -629,8 +663,15 @@ fi
 echo
 echo "  🔐  Next Steps"
 echo "      1. Open the Console URL in your browser."
-echo "      2. Complete the onboarding wizard to create your"
-echo "         initial organization and administrator account."
+if $WITH_DEMO_DATA; then
+  echo "      2. Sign in to the demo organization:"
+  echo "         Email:    ${DEMO_ADMIN_EMAIL}"
+  echo "         Password: ${DEMO_ADMIN_PASSWORD}"
+  echo "         Change this generated password after signing in."
+else
+  echo "      2. Complete the onboarding wizard to create your"
+  echo "         initial organization and administrator account."
+fi
 if [[ ${#SKIPPED_ITEMS[@]} -gt 0 ]]; then
   echo "      3. To configure skipped options, edit"
   echo "         docker-compose.override.yml and run:"

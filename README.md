@@ -168,6 +168,43 @@ When setup finishes, open the console at http://localhost:4200 and create your f
 
 The [running locally guide](https://www.fleetbase.io/docs/platform/quickstart/running-locally) also covers installing with Docker Compose or the setup script, configuring services like mail, maps, and SMS, and troubleshooting. To work on Fleetbase itself, follow the [development setup guide](https://www.fleetbase.io/docs/platform/quickstart/development-setup).
 
+### Install with demo data
+
+For a local development installation populated with a FleetOps demo organization, vehicles, drivers, orders, service areas, maintenance records, and other sample data, run:
+
+```bash
+bash scripts/docker-install.sh --with-demo-data
+```
+
+The interactive installer also offers this option when `development` is selected. At the end it prints the demo administrator email and a randomly generated password. Demo data is opt-in and the installer rejects it in production.
+
+To add or reset the demo dataset on an existing development installation, run:
+
+```bash
+docker compose exec \
+  -e DEMO_ADMIN_EMAIL=demo@fleetbase.test \
+  -e DEMO_ADMIN_PASSWORD='choose-a-local-password' \
+  application php artisan db:seed \
+  --class='Fleetbase\FleetOps\Seeders\Testing\DemoSeeder' --force
+```
+
+Running the seeder again replaces records tagged as `fleetops-testing`; do not use it for production data.
+
+### Configure Google Maps or Neshan
+
+During interactive installation, choose to configure third-party APIs and enter the relevant credentials:
+
+- **Neshan:** a Map API key for rendering maps and a Service API key for search, geocoding, and routing.
+- **Google Maps:** a Google Maps API key. You can still configure Neshan as the fallback map provider.
+
+For an existing installation, add the credentials under **System → Configure → Services**, or set `NESHAN_MAP_API_KEY`, `NESHAN_SERVICE_API_KEY`, and/or `GOOGLE_MAPS_API_KEY` in `docker-compose.override.yml`, then restart the application:
+
+```bash
+docker compose up -d application console
+```
+
+To switch providers, open **FleetOps → Settings → Map**, select **Neshan** or **Google Maps**, choose the provider-specific map options, and save. When Google Maps is selected, set **Fallback Map Provider** to **Neshan** to use it automatically if Google Maps cannot initialize. Select **None** to disable fallback.
+
 ## Extensions
 
 Extensions add features, integrate external systems, or change how Fleetbase behaves. Browse and install them from the console or with the [Fleetbase CLI](https://www.fleetbase.io/docs/cli), and publish your own to the marketplace as free or paid extensions.

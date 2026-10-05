@@ -166,6 +166,14 @@ Run with defaults for non-interactive environments:
 bash scripts/docker-install.sh --non-interactive
 ```
 
+Install a development environment with a demo organization and FleetOps fixtures:
+
+```sh
+bash scripts/docker-install.sh --with-demo-data
+```
+
+The demo option can be combined with `--non-interactive`. It is rejected when the installer environment is production. The completed installation prints a generated demo administrator password.
+
 The script expects Docker, Docker Compose v2, git, and OpenSSL to be available. It warns when common Fleetbase ports are already in use but does not treat that as a hard failure.
 
 It runs on Linux, on macOS's stock `/bin/bash` 3.2, and on Windows in Git Bash. It also creates an empty `api/.env` (bind-mounted by `docker-compose.yml`) when one does not exist.
