@@ -1,0 +1,19 @@
+<div class="details-wrapper" ...attributes>
+    <ContentPanel @title={{t "zone.fields.details"}} @open={{true}} @wrapperClass="bordered-top">
+        <div class="grid grid-cols-1 gap-2">
+            <div class="field-info-container">
+                <div class="field-name">{{t "zone.fields.name"}}</div>
+                <div class="field-value uppercase">{{n-a @resource.name}}</div>
+            </div>
+
+            <div class="field-info-container">
+                <div class="field-name">{{t "zone.fields.description"}}</div>
+                <div class="field-value">{{n-a @resource.description}}</div>
+            </div>
+        </div>
+    </ContentPanel>
+
+    <ContentPanel @title={{t "common.map"}} @open={{true}} @wrapperClass="bordered-top">
+        <GeofenceMap @resource={{@resource}} @label={{concat @resource.name " " (t "resource.zone")}} />
+    </ContentPanel>
+</div>

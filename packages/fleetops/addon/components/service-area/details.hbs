@@ -1,0 +1,24 @@
+<div class="details-wrapper" ...attributes>
+    <ContentPanel @title={{t "service-area.fields.details"}} @open={{true}} @wrapperClass="bordered-top">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
+            <div class="field-info-container">
+                <div class="field-name">{{t "service-area.fields.name"}}</div>
+                <div class="field-value uppercase">{{n-a @resource.name}}</div>
+            </div>
+
+            <div class="field-info-container">
+                <div class="field-name">{{t "service-area.fields.type"}}</div>
+                <div class="field-value uppercase">{{n-a @resource.type}}</div>
+            </div>
+
+            <div class="field-info-container">
+                <div class="field-name">{{t "service-area.fields.country"}}</div>
+                <div class="field-value uppercase">{{n-a @resource.country}}</div>
+            </div>
+        </div>
+    </ContentPanel>
+
+    <ContentPanel @title={{t "common.map"}} @open={{true}} @wrapperClass="bordered-top">
+        <GeofenceMap @resource={{@resource}} @label={{concat @resource.name " " (t "resource.service-area")}} />
+    </ContentPanel>
+</div>

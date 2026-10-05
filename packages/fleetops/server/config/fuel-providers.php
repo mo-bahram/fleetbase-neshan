@@ -1,0 +1,116 @@
+<?php
+
+return [
+    'providers' => [
+        [
+            'key' => 'petroapp',
+            'label' => 'PetroApp',
+            'type' => 'native',
+            'category' => 'Fuel card integration',
+            'icon' => 'gas-pump',
+            'driver_class' => \Fleetbase\FleetOps\Support\FuelProviders\Providers\PetroAppFuelProvider::class,
+            'description' => 'PetroApp fuel card bills, vehicles, trips, and station locations.',
+            'docs_url' => 'https://service.petroapp.com.sa/',
+            'required_fields' => [
+                [
+                    'name' => 'api_token',
+                    'label' => 'Integration Token (WS-SK) or API Token',
+                    'type' => 'password',
+                    'help_text' => 'Use the test token for Sandbox, or your company token for Production. Select the matching authentication method.',
+                    'required' => true,
+                ],
+                [
+                    'name' => 'auth_type',
+                    'label' => 'Authentication method',
+                    'type' => 'select',
+                    'default' => 'ws_sk_header',
+                    'options' => [
+                        ['value' => 'ws_sk_header', 'label' => 'Integration Token (WS-SK)'],
+                        ['value' => 'bearer_token', 'label' => 'Bearer API Token'],
+                    ],
+                    'help_text' => 'Choose WS-SK for an integration token, or Bearer for a token returned by get_apiKey.',
+                    'required' => false,
+                ],
+                [
+                    'name' => 'base_url',
+                    'label' => 'Base URL override (optional)',
+                    'type' => 'url',
+                    'help_text' => 'Leave blank to use the selected environment. A custom URL overrides the environment selection.',
+                    'required' => false,
+                ],
+            ],
+            'capabilities' => ['vehicles', 'transactions', 'stations', 'trips'],
+            'sync_defaults' => [
+                'window_days' => 7,
+                'matching_order' => ['plate_number', 'internal_id', 'vin', 'serial_number', 'call_sign', 'fuel_card_number', 'trip_number'],
+                'auto_create_fuel_reports' => true,
+            ],
+            'setup_instructions' => [
+                'Select Sandbox for PetroApp staging and enter the test integration token using WS-SK authentication.',
+                'Run Test Connection, then sync a small date window to verify imported bills and vehicle matches.',
+                'For Production, use your company integration token from the PetroApp API token profile page.',
+                'Alternatively, exchange company username and password at get_apiKey and use the returned Bearer API token.',
+            ],
+            'metadata' => [
+                'auth_type' => 'ws_sk_header',
+                'supported_auth_types' => ['ws_sk_header', 'bearer_token'],
+                'base_urls' => \Fleetbase\FleetOps\Support\FuelProviders\Providers\PetroAppFuelProvider::BASE_URLS,
+                'environment_labels' => ['sandbox' => 'Sandbox (PetroApp staging)', 'production' => 'Production'],
+                'pagination' => 'page',
+                'default_currency' => 'SAR',
+            ],
+        ],
+        [
+            'key' => 'sasco',
+            'label' => 'SASCO',
+            'type' => 'native',
+            'category' => 'Fuel card integration',
+            'icon' => 'gas-pump',
+            'driver_class' => \Fleetbase\FleetOps\Support\FuelProviders\Providers\SascoFuelProvider::class,
+            'description' => 'SASCO B2B fleet fuel transactions and vehicles.',
+            'required_fields' => [
+                [
+                    'name' => 'username',
+                    'label' => 'B2B admin username',
+                    'type' => 'text',
+                    'help_text' => 'The SASCO B2B company admin login, usually an email address.',
+                    'required' => true,
+                ],
+                [
+                    'name' => 'password',
+                    'label' => 'B2B admin password',
+                    'type' => 'password',
+                    'help_text' => 'Used to request a short-lived access token from SASCO. Fleetbase re-authenticates automatically when it expires.',
+                    'required' => true,
+                ],
+                [
+                    'name' => 'base_url',
+                    'label' => 'Base URL override (optional)',
+                    'type' => 'url',
+                    'help_text' => 'Leave blank to use the selected environment. A custom URL overrides the environment selection.',
+                    'required' => false,
+                ],
+            ],
+            'capabilities' => ['vehicles', 'transactions'],
+            'sync_defaults' => [
+                'window_days' => 7,
+                'matching_order' => ['plate_number', 'internal_id', 'vin', 'serial_number', 'call_sign', 'fuel_card_number', 'trip_number'],
+                'auto_create_fuel_reports' => true,
+            ],
+            'setup_instructions' => [
+                'Request B2B API access from SASCO and obtain the company admin username and password for QC/UAT and Production.',
+                'Select Sandbox for the SASCO QC environment, enter the credentials, and run Test Connection.',
+                'SASCO transactions carry the vehicle plate only, so make sure Fleetbase vehicle plate numbers use the letters-then-digits format (for example NXD 1240).',
+                'Sync a small date window first to verify imported fuel transactions and vehicle matches.',
+            ],
+            'metadata' => [
+                'auth_type' => 'username_password',
+                'supported_auth_types' => ['username_password'],
+                'base_urls' => \Fleetbase\FleetOps\Support\FuelProviders\Providers\SascoFuelProvider::BASE_URLS,
+                'environment_labels' => ['sandbox' => 'Sandbox (SASCO QC)', 'production' => 'Production'],
+                'pagination' => 'current_page',
+                'default_currency' => 'SAR',
+            ],
+        ],
+    ],
+];

@@ -25,6 +25,8 @@ services:
       # IPINFO_API_KEY: your_api_key
       # GOOGLE_MAPS_API_KEY: your_api_key
       # GOOGLE_MAPS_LOCALE: us
+      # NESHAN_MAP_API_KEY: your_map_api_key
+      # NESHAN_SERVICE_API_KEY: your_service_api_key
       # TWILIO_SID: your_twilio_sid
       # TWILIO_TOKEN: your_twilio_token
       # TWILIO_FROM: your_twilio_phone

@@ -1,0 +1,20 @@
+<Modal::Default @modalIsOpened={{@modalIsOpened}} @options={{@options}} @confirm={{@onConfirm}} @decline={{@onDecline}}>
+    <div class="modal-body-container">
+        <InputGroup @name={{t "modals.order-assign-driver.select-driver"}}>
+            <ModelSelect
+                @modelName="driver"
+                @selectedItemComponent={{component "select-option/driver" compact=true}}
+                @selectedModel={{@options.order.driver_assigned}}
+                @placeholder={{t "modals.order-assign-driver.select-assign"}}
+                @triggerClass="form-select form-input"
+                @infiniteScroll={{false}}
+                @renderInPlace={{true}}
+                @onChange={{fn (mut @options.order.driver_assigned)}}
+                as |model|
+            >
+                <SelectOption::Driver @option={{model}} />
+            </ModelSelect>
+        </InputGroup>
+
+    </div>
+</Modal::Default>

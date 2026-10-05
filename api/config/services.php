@@ -53,5 +53,10 @@ return [
     'google_maps' => [
         'locale' => env('GOOGLE_MAPS_LOCALE', 'us'),
         'api_key' => env('GOOGLE_MAPS_API_KEY'),
-    ]
+    ],
+
+    'neshan' => [
+        'map_api_key' => env('NESHAN_MAP_API_KEY'),
+        'service_api_key' => env('NESHAN_SERVICE_API_KEY'),
+    ],
 ];

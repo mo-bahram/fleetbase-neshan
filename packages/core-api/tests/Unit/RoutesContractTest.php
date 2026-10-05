@@ -1,0 +1,388 @@
+<?php
+
+namespace PhpOption {
+    if (!class_exists(Option::class)) {
+        class Option
+        {
+            public function __construct(private mixed $value)
+            {
+            }
+
+            public static function fromValue(mixed $value): self
+            {
+                return new self($value);
+            }
+
+            public function map(callable $callback): self
+            {
+                return $this->value === null ? $this : new self($callback($this->value));
+            }
+
+            public function getOrCall(callable $callback): mixed
+            {
+                return $this->value ?? $callback();
+            }
+        }
+    }
+}
+
+namespace {
+    use Fleetbase\Http\Controllers\Internal\v1\AuthController;
+    use Fleetbase\Http\Middleware\ThrottleRequests;
+    use Illuminate\Container\Container;
+    use Illuminate\Events\Dispatcher;
+    use Illuminate\Routing\Router;
+    use Illuminate\Support\Env;
+    use Illuminate\Support\Facades\Facade;
+    use Illuminate\Support\Str;
+
+    class RoutesContractContainer extends FleetbaseTestContainer
+    {
+        public function version(): string
+        {
+            return '10.0.0';
+        }
+    }
+
+    function routes_contract_router(): Router
+    {
+        Container::setInstance(new RoutesContractContainer());
+
+        $container = bind_test_container([
+            'app.debug'                             => false,
+            'app.env'                               => 'testing',
+            'fleetbase.api.routing.prefix'          => '/',
+            'fleetbase.api.routing.internal_prefix' => 'int',
+        ]);
+
+        $router = new Router(new Dispatcher($container), $container);
+        $container->instance('router', $router);
+        Facade::clearResolvedInstances();
+
+        Router::macro('fleetbaseRestRoutes', function (string $name, $controller = null, $options = []) {
+            if ($controller === null) {
+                $controller = Str::studly(Str::singular($name)) . 'Controller';
+            }
+
+            $wildcard = str_replace('-', '_', Str::singular($name));
+
+            $this->get($name, $controller . '@queryRecord');
+            $this->post($name, $controller . '@createRecord');
+            $this->delete($name . '/bulk-delete', $controller . '@bulkDelete');
+            $this->get($name . '/{' . $wildcard . '}', $controller . '@findRecord');
+            $this->match(['PUT', 'PATCH'], $name . '/{' . $wildcard . '}', $controller . '@updateRecord');
+
+            return $this->delete($name . '/{' . $wildcard . '}', $controller . '@deleteRecord');
+        });
+
+        Router::macro('fleetbaseRoutes', function (string $name, callable|array|null $registerFn = null, $options = [], $controller = null) {
+            if (is_array($registerFn) && !empty($registerFn) && empty($options)) {
+                $options = $registerFn;
+            }
+
+            if (is_callable($controller) && $registerFn === null) {
+                $registerFn = $controller;
+                $controller = null;
+            }
+
+            if (is_callable($options) && $registerFn === null) {
+                $registerFn = $options;
+                $options    = [];
+            }
+
+            if ($controller === null) {
+                $controller = Str::studly(Str::singular($name)) . 'Controller';
+            }
+
+            $make = fn (string $routeName): string => $controller . '@' . $routeName;
+
+            return $this->group($options, function (Router $router) use ($name, $registerFn, $make, $controller, $options) {
+                if (is_callable($registerFn)) {
+                    $router->group(['prefix' => $name], function (Router $router) use ($registerFn, $make, $controller) {
+                        $registerFn($router, $make, $controller);
+                    });
+                }
+
+                $router->fleetbaseRestRoutes($name, $controller, $options);
+            });
+        });
+
+        // Mirrors src/Expansions/Route.php:121-160, including the two extension
+        // callbacks. Without them this local macro would silently drop every route
+        // src/routes.php registers through the seam, and the contract below would
+        // pass while asserting nothing about them.
+        Router::macro('fleetbaseAuthRoutes', function (?string $authControllerClass = null, ?callable $registerFn = null, ?callable $registerProtectedFn = null) {
+            $authControllerClass ??= AuthController::class;
+
+            return $this->group(['prefix' => 'auth'], function (Router $router) use ($authControllerClass, $registerFn, $registerProtectedFn) {
+                $router->group(['middleware' => [ThrottleRequests::class]], function (Router $router) use ($authControllerClass, $registerFn) {
+                    $router->post('login', [$authControllerClass, 'login']);
+                    $router->post('sign-up', [$authControllerClass, 'signUp']);
+                    $router->post('logout', [$authControllerClass, 'logout']);
+                    $router->post('get-magic-reset-link', [$authControllerClass, 'createPasswordReset']);
+                    $router->post('reset-password', [$authControllerClass, 'resetPassword']);
+                    $router->post('confirm-email-change', [$authControllerClass, 'confirmEmailChange']);
+                    $router->post('create-verification-session', [$authControllerClass, 'createVerificationSession']);
+                    $router->post('validate-verification-session', [$authControllerClass, 'validateVerificationSession']);
+                    $router->post('send-verification-email', [$authControllerClass, 'sendVerificationEmail']);
+                    $router->post('verify-email', [$authControllerClass, 'verifyEmail']);
+                    $router->get('validate-verification', [$authControllerClass, 'validateVerificationCode']);
+
+                    if (is_callable($registerFn)) {
+                        $registerFn($router);
+                    }
+                });
+
+                $router->group(['middleware' => ['fleetbase.protected']], function (Router $router) use ($authControllerClass, $registerProtectedFn) {
+                    $router->post('switch-organization', [$authControllerClass, 'switchOrganization']);
+                    $router->post('join-organization', [$authControllerClass, 'joinOrganization']);
+                    $router->post('create-organization', [$authControllerClass, 'createOrganization']);
+                    $router->get('session', [$authControllerClass, 'session']);
+                    $router->get('organizations', [$authControllerClass, 'getUserOrganizations']);
+                    $router->get('services', [$authControllerClass, 'services']);
+
+                    if (is_callable($registerProtectedFn)) {
+                        $registerProtectedFn($router);
+                    }
+                });
+            });
+        });
+
+        $repository = new class {
+            public function get(string $key): mixed
+            {
+                return [
+                    'APP_DEBUG' => 'false',
+                ][$key] ?? null;
+            }
+        };
+
+        $envRepository = new ReflectionProperty(Env::class, 'repository');
+        $envRepository->setAccessible(true);
+        $envRepository->setValue(null, $repository);
+
+        require __DIR__ . '/../../src/routes.php';
+
+        return $router;
+    }
+
+    function routes_contract_rows(Router $router): array
+    {
+        return array_map(
+            fn ($route) => [
+                'methods'    => array_values(array_diff($route->methods(), ['HEAD'])),
+                'uri'        => $route->uri(),
+                'action'     => $route->getActionName(),
+                'middleware' => $route->middleware(),
+            ],
+            $router->getRoutes()->getRoutes()
+        );
+    }
+
+    function routes_contract_find(array $rows, string $method, string $uri): ?array
+    {
+        return collect($rows)->first(
+            fn (array $route) => $route['uri'] === $uri && in_array($method, $route['methods'], true)
+        );
+    }
+
+    function routes_contract_index(array $rows, string $method, string $uri): int|false
+    {
+        foreach ($rows as $index => $route) {
+            if ($route['uri'] === $uri && in_array($method, $route['methods'], true)) {
+                return $index;
+            }
+        }
+
+        return false;
+    }
+
+    afterEach(function () {
+        Container::setInstance(new FleetbaseTestContainer());
+        Facade::clearResolvedInstances();
+    });
+
+    test('route file registers platform public and protected api groups with expected middleware', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $platformOrganizations = routes_contract_find($routes, 'GET', 'v1/organizations');
+        $currentOrganization   = routes_contract_find($routes, 'GET', 'v1/organizations/current');
+        $publicFileCreate      = routes_contract_find($routes, 'POST', 'v1/files');
+
+        expect($platformOrganizations)->not->toBeNull()
+            ->and($platformOrganizations['action'])->toBe('Fleetbase\Http\Controllers\Api\v1\OrganizationController@listOrganizations')
+            ->and($platformOrganizations['middleware'])->toContain('fleetbase.platform-api')
+            ->and($currentOrganization)->not->toBeNull()
+            ->and($currentOrganization['action'])->toBe('Fleetbase\Http\Controllers\Api\v1\OrganizationController@getCurrent')
+            ->and($currentOrganization['middleware'])->toContain('fleetbase.api')
+            ->and($publicFileCreate)->not->toBeNull()
+            ->and($publicFileCreate['action'])->toBe('Fleetbase\Http\Controllers\Api\v1\FileController@create')
+            ->and($publicFileCreate['middleware'])->toContain('fleetbase.api');
+    });
+
+    test('route file keeps unauthenticated throttled auth routes separate from protected auth routes', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $login   = routes_contract_find($routes, 'POST', 'int/v1/auth/login');
+        $switch  = routes_contract_find($routes, 'POST', 'int/v1/auth/switch-organization');
+        $session = routes_contract_find($routes, 'GET', 'int/v1/auth/session');
+
+        expect($login)->not->toBeNull()
+            ->and($login['action'])->toBe(AuthController::class . '@login')
+            ->and($login['middleware'])->toContain(ThrottleRequests::class)
+            ->and($login['middleware'])->not->toContain('fleetbase.protected')
+            ->and($switch)->not->toBeNull()
+            ->and($switch['action'])->toBe(AuthController::class . '@switchOrganization')
+            ->and($switch['middleware'])->toContain('fleetbase.protected')
+            ->and($session)->not->toBeNull()
+            ->and($session['action'])->toBe(AuthController::class . '@session')
+            ->and($session['middleware'])->toContain('fleetbase.protected');
+    });
+
+    test('route file exposes oauth sign-in as public throttled routes', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $controller = Fleetbase\Http\Controllers\Internal\v1\OAuthController::class;
+
+        $providers = routes_contract_find($routes, 'GET', 'int/v1/auth/oauth/providers');
+        $exchange  = routes_contract_find($routes, 'POST', 'int/v1/auth/oauth/exchange');
+        $redirect  = routes_contract_find($routes, 'GET', 'int/v1/auth/oauth/{provider}/redirect');
+
+        expect($providers)->not->toBeNull()
+            ->and($providers['action'])->toBe($controller . '@providers')
+            ->and($providers['middleware'])->toContain(ThrottleRequests::class)
+            // These are how a user signs in — a session cannot be a precondition.
+            ->and($providers['middleware'])->not->toContain('fleetbase.protected')
+            ->and($exchange)->not->toBeNull()
+            ->and($exchange['action'])->toBe($controller . '@exchange')
+            ->and($exchange['middleware'])->toContain(ThrottleRequests::class)
+            ->and($exchange['middleware'])->not->toContain('fleetbase.protected')
+            ->and($redirect)->not->toBeNull()
+            ->and($redirect['action'])->toBe($controller . '@redirect')
+            ->and($redirect['middleware'])->not->toContain('fleetbase.protected');
+    });
+
+    test('route file accepts the oauth callback over both get and post', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $controller = Fleetbase\Http\Controllers\Internal\v1\OAuthController::class;
+
+        // Apple requires response_mode=form_post whenever the name/email scopes are
+        // requested, so its callback arrives as a cross-site POST. Dropping POST here
+        // breaks Sign in with Apple and nothing else, which makes it easy to miss.
+        $get  = routes_contract_find($routes, 'GET', 'int/v1/auth/oauth/{provider}/callback');
+        $post = routes_contract_find($routes, 'POST', 'int/v1/auth/oauth/{provider}/callback');
+
+        expect($get)->not->toBeNull()
+            ->and($get['action'])->toBe($controller . '@callback')
+            ->and($post)->not->toBeNull()
+            ->and($post['action'])->toBe($controller . '@callback')
+            ->and($post['middleware'])->not->toContain('fleetbase.protected');
+    });
+
+    test('route file protects every account linking route', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $controller = Fleetbase\Http\Controllers\Internal\v1\OAuthController::class;
+
+        // Every linking action acts on the signed-in user, and completeLink() is what
+        // defeats account-linking CSRF by checking that user — so none may be public.
+        foreach ([
+            ['GET', 'int/v1/auth/oauth/identities', 'identities'],
+            ['POST', 'int/v1/auth/oauth/link/complete', 'completeLink'],
+            ['POST', 'int/v1/auth/oauth/{provider}/link', 'link'],
+            ['DELETE', 'int/v1/auth/oauth/{provider}/unlink', 'unlink'],
+        ] as [$method, $uri, $action]) {
+            $route = routes_contract_find($routes, $method, $uri);
+
+            expect($route)->not->toBeNull()
+                ->and($route['action'])->toBe($controller . '@' . $action)
+                ->and($route['middleware'])->toContain('fleetbase.protected');
+        }
+
+        expect(routes_contract_index($routes, 'POST', 'int/v1/auth/oauth/link/complete'))
+            ->toBeLessThan(routes_contract_index($routes, 'POST', 'int/v1/auth/oauth/{provider}/link'));
+    });
+
+    test('route file registers literal oauth routes before the provider wildcard', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        // {provider} would otherwise swallow "providers" and "exchange", and the
+        // failure would look like an unknown-provider error rather than a routing bug.
+        expect(routes_contract_index($routes, 'GET', 'int/v1/auth/oauth/providers'))
+            ->toBeLessThan(routes_contract_index($routes, 'GET', 'int/v1/auth/oauth/{provider}/redirect'))
+            ->and(routes_contract_index($routes, 'POST', 'int/v1/auth/oauth/exchange'))
+            ->toBeLessThan(routes_contract_index($routes, 'POST', 'int/v1/auth/oauth/{provider}/callback'));
+    });
+
+    test('route file exposes oauth configuration as protected admin settings', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        $settings = 'Fleetbase\\Http\\Controllers\\Internal\\v1\\SettingController';
+
+        $get  = routes_contract_find($routes, 'GET', 'int/v1/settings/oauth-config');
+        $save = routes_contract_find($routes, 'POST', 'int/v1/settings/oauth-config');
+        $test = routes_contract_find($routes, 'POST', 'int/v1/settings/test-oauth-config');
+
+        // Provider credentials are configured here, so these must sit behind the
+        // authenticated group — the AdminRequest on each action then restricts them
+        // to administrators.
+        expect($get['action'])->toBe($settings . '@getOAuthConfig')
+            ->and($get['middleware'])->toContain('fleetbase.protected')
+            ->and($save['action'])->toBe($settings . '@saveOAuthConfig')
+            ->and($save['middleware'])->toContain('fleetbase.protected')
+            ->and($test['action'])->toBe($settings . '@testOAuthConfig')
+            ->and($test['middleware'])->toContain('fleetbase.protected');
+    });
+
+    test('route file keeps critical internal custom routes before dynamic resource routes', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        expect(routes_contract_index($routes, 'GET', 'int/v1/files/download/{id?}'))
+            ->toBeLessThan(routes_contract_index($routes, 'GET', 'int/v1/files/{file}'))
+            ->and(routes_contract_index($routes, 'POST', 'int/v1/files/upload'))
+            ->toBeLessThan(routes_contract_index($routes, 'GET', 'int/v1/files/{file}'))
+            ->and(routes_contract_index($routes, 'GET', 'int/v1/reports/tables/{table}/schema'))
+            ->toBeLessThan(routes_contract_index($routes, 'GET', 'int/v1/reports/{report}'))
+            ->and(routes_contract_index($routes, 'POST', 'int/v1/reports/{id}/execute'))
+            ->toBeLessThan(routes_contract_index($routes, 'GET', 'int/v1/reports/{report}'))
+            ->and(routes_contract_index($routes, 'DELETE', 'int/v1/companies/bulk-delete'))
+            ->toBeLessThan(routes_contract_index($routes, 'DELETE', 'int/v1/companies/{company}'));
+    });
+
+    test('route file exposes critical internal settings metrics and notification contracts', function () {
+        $routes = routes_contract_rows(routes_contract_router());
+
+        expect(routes_contract_find($routes, 'GET', 'int/v1/settings/filesystem-config')['action'])
+            ->toBe('Fleetbase\Http\Controllers\Internal\v1\SettingController@getFilesystemConfig')
+            ->and(routes_contract_find($routes, 'POST', 'int/v1/settings/test-sms-provider-config')['action'])
+            ->toBe('Fleetbase\Http\Controllers\Internal\v1\SettingController@testSmsProviderConfig')
+            ->and(routes_contract_find($routes, 'GET', 'int/v1/metrics/iam/kpis')['action'])
+            ->toBe('Fleetbase\Http\Controllers\Internal\v1\IamMetricsController@kpis')
+            ->and(routes_contract_find($routes, 'GET', 'int/v1/metrics/admin/widgets/{widget}')['action'])
+            ->toBe('Fleetbase\Http\Controllers\Internal\v1\AdminMetricsController@widget')
+            ->and(routes_contract_find($routes, 'GET', 'int/v1/notifications/registry')['action'])
+            ->toBe('Fleetbase\Http\Controllers\Internal\v1\NotificationController@registry');
+    });
+
+    test('route file exposes api rate limit administration as protected routes', function () {
+        $routes     = routes_contract_rows(routes_contract_router());
+        $controller = 'Fleetbase\\Http\\Controllers\\Internal\\v1\\RateLimitController';
+
+        $expected = [
+            ['GET', 'int/v1/rate-limits/settings', 'getSettings'],
+            ['POST', 'int/v1/rate-limits/settings', 'saveSettings'],
+            ['DELETE', 'int/v1/rate-limits/settings', 'resetSettings'],
+            ['GET', 'int/v1/rate-limits/consumers', 'consumers'],
+            ['POST', 'int/v1/rate-limits/consumers/{signature}/reset', 'resetConsumer'],
+        ];
+
+        foreach ($expected as [$method, $uri, $action]) {
+            $route = routes_contract_find($routes, $method, $uri);
+
+            expect($route)->not->toBeNull()
+                ->and($route['action'])->toBe($controller . '@' . $action)
+                ->and($route['middleware'])->toContain('fleetbase.protected');
+        }
+    });
+}

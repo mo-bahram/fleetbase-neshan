@@ -325,6 +325,7 @@ fi
 section "Optional Third-Party Services"
 
 IPINFO_API_KEY=""; GOOGLE_MAPS_API_KEY=""; GOOGLE_MAPS_LOCALE="us"
+NESHAN_MAP_API_KEY=""; NESHAN_SERVICE_API_KEY=""
 TWILIO_SID=""; TWILIO_TOKEN=""; TWILIO_FROM=""
 
 CONFIG_3P=false
@@ -337,6 +338,8 @@ if $CONFIG_3P; then
   read -rp  "  IPInfo API key (geolocation, leave blank to skip): "  IPINFO_API_KEY
   read -rp  "  Google Maps API key (leave blank to skip): "          GOOGLE_MAPS_API_KEY
   read -rp  "  Google Maps locale [us]: "                            GM_LOCALE_INPUT; GOOGLE_MAPS_LOCALE="${GM_LOCALE_INPUT:-us}"
+  read -rp  "  Neshan Map API key (leave blank to skip): "           NESHAN_MAP_API_KEY
+  read -rp  "  Neshan Service API key (leave blank to skip): "       NESHAN_SERVICE_API_KEY
   read -rp  "  Twilio Account SID (SMS, leave blank to skip): "      TWILIO_SID
   read -srp "  Twilio Auth Token: "                                   TWILIO_TOKEN; echo
   read -rp  "  Twilio From phone number: "                           TWILIO_FROM
@@ -413,6 +416,8 @@ YAML_HEADER
   env_line "IPINFO_API_KEY"      "$IPINFO_API_KEY"
   env_line "GOOGLE_MAPS_API_KEY" "$GOOGLE_MAPS_API_KEY"
   env_line "GOOGLE_MAPS_LOCALE"  "$GOOGLE_MAPS_LOCALE"
+  env_line "NESHAN_MAP_API_KEY"  "$NESHAN_MAP_API_KEY"
+  env_line "NESHAN_SERVICE_API_KEY" "$NESHAN_SERVICE_API_KEY"
   env_line "TWILIO_SID"          "$TWILIO_SID"
   env_line "TWILIO_TOKEN"        "$TWILIO_TOKEN"
   env_line "TWILIO_FROM"         "$TWILIO_FROM"

@@ -1,0 +1,32 @@
+name: API Contract (Postman)
+
+# Boots a full Fleetbase stack (published image) and runs the FleetOps Postman
+# collection against the live API. Delegates to the reusable workflow in
+# fleetbase/fleetbase. Requires org secrets POSTMAN_API_KEY + _GITHUB_AUTH_TOKEN
+# (inherited); no-ops until POSTMAN_API_KEY is set.
+#
+# Pin the workflow and host checkout together so branch installation resolves the
+# required published Core release before migrating and exercising this module.
+# The workflow records the API image digest and resolved dependencies for traceability.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, 'release/v*', 'dev-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    uses: fleetbase/fleetbase/.github/workflows/api-contract.yml@880c7392c67c93e3a65f01916d7a04036c098935
+    with:
+      fleetbase-ref: 880c7392c67c93e3a65f01916d7a04036c098935
+      collections: "Fleetbase API"
+      build-from-source: false
+      # Without this the run tests the version of fleetbase/fleetops-api baked into the
+      # published image, not the branch under review. The workflow checks this
+      # repository out at the commit under test and swaps it into the container.
+      overlay-package: fleetbase/fleetops-api
+    secrets: inherit

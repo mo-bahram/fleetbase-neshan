@@ -21,6 +21,10 @@ export default class ConfigureServicesComponent extends Component {
     @tracked googleMapsApiKey = null;
     @tracked googleMapsLocale = 'us';
 
+    /** neshan service */
+    @tracked neshanMapApiKey = null;
+    @tracked neshanServiceApiKey = null;
+
     /** twilio service */
     @tracked twilioSid = null;
     @tracked twilioToken = null;
@@ -203,6 +207,10 @@ export default class ConfigureServicesComponent extends Component {
                 googleMaps: {
                     api_key: this.googleMapsApiKey,
                     locale: this.googleMapsLocale,
+                },
+                neshan: {
+                    map_api_key: this.neshanMapApiKey,
+                    service_api_key: this.neshanServiceApiKey,
                 },
                 twilio: {
                     sid: this.twilioSid,

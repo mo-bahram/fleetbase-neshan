@@ -1,0 +1,19 @@
+<Modal::Default @modalIsOpened={{@modalIsOpened}} @options={{@options}} @confirm={{@onConfirm}} @decline={{@onDecline}}>
+    <div class="modal-body-container">
+        <InputGroup @name={{t "common.select-field" field=(t "resource.driver")}} @value={{@options.selectedDriver}}>
+            <ModelSelect
+                @modelName="driver"
+                @selectedItemComponent={{component "select-option/driver" compact=true}}
+                @selectedModel={{@options.selectedDriver}}
+                @placeholder={{t "common.select-field" field=(t "resource.driver")}}
+                @triggerClass="form-select form-input"
+                @infiniteScroll={{true}}
+                @renderInPlace={{true}}
+                @onChange={{fn (mut @options.selectedDriver)}}
+                as |driver|
+            >
+                <SelectOption::Driver @option={{driver}} />
+            </ModelSelect>
+        </InputGroup>
+    </div>
+</Modal::Default>

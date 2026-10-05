@@ -1,0 +1,22 @@
+<Modal::Default @modalIsOpened={{@modalIsOpened}} @options={{@options}} @confirm={{@onConfirm}} @decline={{@onDecline}}>
+    <div class="modal-body-container">
+        <div class="grid grid-cols-1 gap-2 text-xs dark:text-gray-100">
+            <InputGroup @name={{t "modals.place-assign-vendor.select-vendor"}} @value={{@options.place.vendor_uuid}}>
+                <ModelSelect
+                    @modelName="vendor"
+                    @selectedItemComponent={{component "select-option/vendor" compact=true}}
+                    @selectedModel={{@options.place.vendor_uuid}}
+                    @placeholder={{t "modals.place-assign-vendor.select-vendor"}}
+                    @triggerClass="form-select form-input"
+                    @infiniteScroll={{false}}
+                    @renderInPlace={{true}}
+                    @onChangeId={{fn (mut @options.place.vendor_uuid)}}
+                    as |model|
+                >
+                    <SelectOption::Vendor @option={{model}} />
+                </ModelSelect>
+            </InputGroup>
+        </div>
+    </div>
+    {{yield}}
+</Modal::Default>

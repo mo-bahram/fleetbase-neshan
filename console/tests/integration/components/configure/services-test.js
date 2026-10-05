@@ -15,6 +15,8 @@ class FetchStub extends Service {
                 awsKey: 'aws-key',
                 awsSecret: 'aws-secret',
                 awsRegion: 'us-east-1',
+                neshanMapApiKey: 'neshan-map-key',
+                neshanServiceApiKey: 'neshan-service-key',
                 twilioSid: 'twilio-sid',
                 twilioToken: 'twilio-token',
                 twilioFrom: '+15551234567',
@@ -98,6 +100,8 @@ module('Integration | Component | configure/services', function (hooks) {
         assert.dom('[data-test-sms-configure-provider]').exists();
         assert.dom(this.element).includesText('SMS Providers');
         assert.dom(this.element).doesNotIncludeText('Test Twilio Config');
+        assert.dom('[data-test-neshan-map-api-key]').hasValue('neshan-map-key');
+        assert.dom('[data-test-neshan-service-api-key]').hasValue('neshan-service-key');
 
         await select('[data-test-sms-default-provider]', 'messagebird');
         assert.dom('[data-test-sms-configure-provider]').hasValue('messagebird');
@@ -319,6 +323,8 @@ module('Integration | Component | configure/services | actions', function (hooks
         component.awsRegion = 'us-east-1';
         component.ipinfoApiKey = 'ipinfo';
         component.googleMapsApiKey = 'maps-key';
+        component.neshanMapApiKey = 'neshan-map-key';
+        component.neshanServiceApiKey = 'neshan-service-key';
         component.twilioSid = 'sid';
         component.twilioToken = 'token';
         component.twilioFrom = '+15550000000';
@@ -331,6 +337,7 @@ module('Integration | Component | configure/services | actions', function (hooks
         assert.deepEqual(payload.aws, { key: 'aws-key', secret: 'aws-secret', region: 'us-east-1' });
         assert.deepEqual(payload.ipinfo, { api_key: 'ipinfo' });
         assert.deepEqual(payload.googleMaps, { api_key: 'maps-key', locale: 'us' });
+        assert.deepEqual(payload.neshan, { map_api_key: 'neshan-map-key', service_api_key: 'neshan-service-key' });
         assert.deepEqual(payload.twilio, { sid: 'sid', token: 'token', from: '+15550000000' });
         assert.deepEqual(payload.sentry, { dsn: 'https://sentry.example.com/1' });
         assert.strictEqual(payload.sms.defaultProvider, 'twilio');

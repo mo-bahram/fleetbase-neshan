@@ -1,4 +1,10 @@
 /node_modules
+.tmp-pkg/
+.DS_Store
+.eslintcache
+.php-cs-fixer.cache
+.phpunit.cache/
+coverage/
 __pycache__/
 *.py[cod]
 .fleetbase-dev-links.json

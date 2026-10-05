@@ -9,6 +9,11 @@
     <InputGroup @name="Google Maps Locale" @value={{this.googleMapsLocale}} disabled={{this.isLoading}} />
 </ContentPanel>
 
+<ContentPanel @title="Neshan" @open={{true}} @wrapperClass="bordered-classic">
+    <InputGroup @name="Neshan Map API Key" @value={{this.neshanMapApiKey}} disabled={{this.isLoading}} data-test-neshan-map-api-key />
+    <InputGroup @name="Neshan Service API Key" @value={{this.neshanServiceApiKey}} disabled={{this.isLoading}} data-test-neshan-service-api-key />
+</ContentPanel>
+
 <ContentPanel @title="SMS Providers" @open={{true}} @wrapperClass="bordered-classic">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
